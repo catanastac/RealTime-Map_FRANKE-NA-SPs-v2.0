@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Custom GeoJSON Map</title>
+    
+    <!-- Leaflet CSS and JavaScript must be loaded first -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- NEW: Load the Geocoder and Search plugins AFTER Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-search/dist/leaflet-search.min.css" />
+    <script src="https://unpkg.com/leaflet-search/dist/leaflet-search.min.js"></script>
+
+    <style>
+        html, body, #map {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        /* Style for the horizontal line in the popup */
+        .leaflet-popup-content hr {
+            border: none;
+            border-top: 1px solid black;
+            margin: 8px 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <script>
+        // 1. Initialize the map
+        const map = L.map('map').setView([39.1, -94.58], 5); // Centered on Kansas City, MO
+
+        // 2. Add background map tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+	//** Add Geocoder Control (topright by default) for general addresses
+	    L.Control.geocoder({
+            placeholder: 'Search for any address...',
+            position: 'topright'
+        }).addTo(map);
+
+        // 3. The URL for your live GeoJSON feed
+        const geojsonUrl = "https://script.google.com/macros/s/AKfycbwoi6YYqI_oY6-ZqrLBiZbS9-fwZztex4waolm73xrTm1buD2i7OSG-fUJZjVBny7QT7w/exec";
+
+        // *** MODIFIED: Define all required pushpin icons ***
+        const ltbluPushpinIcon = L.icon({
+            iconUrl: 'https://maps.google.com/mapfiles/kml/pushpin/ltblu-pushpin.png',
+            iconSize: [20, 20], iconAnchor: [16, 32], popupAnchor: [0, -32]
+        });
+        const pinkPushpinIcon = L.icon({
+            iconUrl: 'http://maps.google.com/mapfiles/kml/pushpin/pink-pushpin.png',
+            iconSize: [20, 20], iconAnchor: [16, 32], popupAnchor: [0, -32]
+        });
+        const ylwPushpinIcon = L.icon({
+            iconUrl: 'http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png',
+            iconSize: [20, 20], iconAnchor: [16, 32], popupAnchor: [0, -32]
+        });
+        const redPushpinIcon = L.icon({
+            iconUrl: 'https://maps.google.com/mapfiles/kml/pushpin/red-pushpin.png',
+            iconSize: [20, 20], iconAnchor: [16, 32], popupAnchor: [0, -32]
+        });
+        const purplePushpinIcon = L.icon({
+            iconUrl: 'https://maps.google.com/mapfiles/kml/pushpin/purple-pushpin.png',
+            iconSize: [20, 20], iconAnchor: [16, 32], popupAnchor: [0, -32]
+        });
+        const grnPushpinIcon = L.icon({ // New green icon
+            iconUrl: 'https://maps.google.com/mapfiles/kml/pushpin/grn-pushpin.png',
+            iconSize: [20, 20], iconAnchor: [16, 32], popupAnchor: [0, -32]
+        });
+
+        // *** MODIFIED: Define arrays for each group of states ***
+        const canadianStates = ['AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'ON', 'PE', 'QC', 'SK', 'YT'];
+        const pinkStates = ['AK', 'HI', 'WA', 'OR', 'CA', 'NV', 'AZ', 'ID', 'MT', 'WY', 'CO', 'NM'];
+        const ylwStates = ['ND', 'SD', 'NE', 'KS', 'MN', 'IA', 'MO', 'WI', 'IL', 'MI', 'IN', 'OH', 'KY'];
+        const purpleStates = ['TX', 'AR', 'OK'];
+        const grnStates = ['LA', 'MS', 'AL', 'GA', 'FL', 'WV', 'VA', 'NC', 'SC', 'MD', 'DE', 'NJ', 'NY', 'CT', 'VT', 'NH', 'MA', 'RI', 'ME', 'PA'];
+
+        // 4. Fetch your GeoJSON data
+        fetch(geojsonUrl)
+            .then(response => response.json())
+            .then(data => {
+                // Save the GeoJSON layer to a variable that the search control can access
+                const geoJsonLayer = L.geoJSON(data, {
+                    pointToLayer: function (feature, latlng) {
+                        
+                        let popupContent = 'No data available';
+                        if (feature.properties) {
+                            popupContent = '';
+                            if (feature.properties['CUSTOMER']) {
+                                popupContent += `<b>${feature.properties['CUSTOMER']}</b>`;
+                            }
+                            if (feature.properties['Full Address']) {
+                                popupContent += `<hr>${feature.properties['Full Address']}`;
+                            }
+                            if (feature.properties['Contacts']) {
+                                popupContent += `<hr>${feature.properties['Contacts']}`;
+                            }
+                            if (feature.properties['RSM Notes']) {
+                                popupContent += `<hr>${feature.properties['RSM Notes']}`;
+                            }
+                        }
+
+                        let chosenIcon = redPushpinIcon;
+                        const state = feature.properties['State'];
+
+                        if (state) {
+                            if (canadianStates.includes(state)) {
+                                chosenIcon = ltbluPushpinIcon;
+                            } else if (pinkStates.includes(state)) {
+                                chosenIcon = pinkPushpinIcon;
+                            } else if (ylwStates.includes(state)) {
+                                chosenIcon = ylwPushpinIcon;
+                            } else if (state === 'TN') {
+                                chosenIcon = redPushpinIcon;
+                            } else if (purpleStates.includes(state)) {
+                                chosenIcon = purplePushpinIcon;
+                            } else if (grnStates.includes(state)) {
+                                chosenIcon = grnPushpinIcon;
+                            }
+                        }
+
+                        const customMarker = L.marker(latlng, { icon: chosenIcon }).bindPopup(popupContent);
+                        return customMarker;
+                    }
+                }).addTo(map);
+
+                // Leaflet Search Control (topleft) for "Location ID"
+                const searchControl = new L.Control.Search({
+                    position: 'topleft',
+                    layer: geoJsonLayer,
+                    propertyName: 'Location ID',
+                    marker: false,
+                    initial: false,
+                    textPlaceholder: 'Search Location ID...',
+                    zoom: 18 // Optional: Zoom closer to the result
+                });
+                searchControl.on('search:locationfound', function(e) {
+                    if (e.layer && e.layer.openPopup) {
+                        e.layer.openPopup();
+                    }
+                });
+
+                map.addControl(searchControl);
+            })
+            .catch(error => console.error('Error fetching GeoJSON:', error));
+    </script>
+</body>
+</html>
